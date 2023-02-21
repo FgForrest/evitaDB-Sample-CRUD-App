@@ -1,5 +1,6 @@
 package io.evitadb.example.crud.context;
 
+import io.evitadb.api.EvitaContract;
 import io.evitadb.api.EvitaSessionContract;
 import org.springframework.beans.factory.DisposableBean;
 
@@ -8,8 +9,17 @@ import org.springframework.beans.factory.DisposableBean;
  *
  * @author Jan Novotný (novotny@fg.cz), FG Forrest a.s. (c) 2023
  */
-public class EvitaSessionHolder implements DisposableBean {
+public class EvitaHolder implements DisposableBean {
+	private final EvitaContract evita;
 	private EvitaSessionContract session;
+
+	public EvitaHolder(EvitaContract evita) {
+		this.evita = evita;
+	}
+
+	public EvitaContract getEvita() {
+		return evita;
+	}
 
 	public EvitaSessionContract getSession() {
 		return session;
@@ -23,6 +33,9 @@ public class EvitaSessionHolder implements DisposableBean {
 	public void destroy() throws Exception {
 		if (session != null) {
 			session.close();
+		}
+		if (evita != null) {
+			evita.close();
 		}
 	}
 

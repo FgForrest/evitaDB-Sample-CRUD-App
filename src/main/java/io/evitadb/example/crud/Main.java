@@ -1,21 +1,25 @@
 package io.evitadb.example.crud;
 
-import io.evitadb.api.EvitaContract;
 import io.evitadb.driver.EvitaClient;
 import io.evitadb.driver.config.EvitaClientConfiguration;
-import io.evitadb.example.crud.context.EvitaSessionHolder;
+import io.evitadb.example.crud.context.EvitaHolder;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.JdkLoggerFactory;
 import org.jline.terminal.Terminal;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.SpringApplication.AbandonedRunException;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.shell.component.flow.ComponentFlow;
 import org.springframework.shell.style.TemplateExecutor;
 
+import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -32,13 +36,21 @@ public class Main {
 	 * Start Spring Boot application.
 	 */
 	public static void main(String[] args) {
-		SpringApplication.run(Main.class, args);
+		try {
+			SpringApplication.run(Main.class, args);
+		} catch (Exception ex) {
+			if (ex instanceof AbandonedRunException) {
+				// quit silently, application could not connect to evitaDB server, and it was already logged in console
+			} else {
+				log.severe(ex.getMessage());
+			}
+		}
 	}
 
 	/**
 	 * Displays list of available catalogs in evitaDB and welcoming header.
 	 */
-	private static void printEvitaDbClientStatus(EvitaClient evita) {
+	private static void connectAndPrintEvitaDbClientStatus(@Nonnull EvitaClient evita) {
 		final StringBuilder status = new StringBuilder("""
 			             _ _        ____  ____ \s
 			   _____   _(_) |_ __ _|  _ \\| __ )\s
@@ -49,21 +61,53 @@ public class Main {
 			  ... server connected 😉\n\n
 			"""
 		);
-		final Set<String> catalogNames = evita.getCatalogNames();
-		if (!catalogNames.isEmpty()) {
-			status.append("Catalogs already available in evitaDB instance:\n\n");
-			for (String catalogName : catalogNames) {
-				status.append("   - ").append(catalogName).append("\n");
+
+		// wait 20 * 300 ms = 6secs for evitaDB to start
+		int iterations = 0;
+		RuntimeException exception;
+		do {
+			try {
+				final Set<String> catalogNames = evita.getCatalogNames();
+				if (!catalogNames.isEmpty()) {
+					status.append("Catalogs already available in evitaDB instance:\n\n");
+					for (String catalogName : catalogNames) {
+						status.append("   - ").append(catalogName).append("\n");
+					}
+				}
+				System.out.println(status);
+				return;
+
+			} catch (RuntimeException ex) {
+				exception = ex;
+				try {
+					Thread.sleep(300);
+				} catch (InterruptedException ignored) {
+					// continue
+				}
 			}
+		} while (iterations++ < 20);
+
+		throw exception;
+	}
+
+	/**
+	 * When application context starts, check whether there is evita client initialized and if not,
+	 * throw an {@link AbandonedRunException} that kills the application without logging the exception.
+	 */
+	@EventListener
+	public void onApplicationEvent(ContextRefreshedEvent event) {
+		final ConfigurableApplicationContext ctx = (ConfigurableApplicationContext) event.getApplicationContext();
+		final EvitaHolder holder = ctx.getBean(EvitaHolder.class);
+		if (holder.getEvita() == null) {
+			throw new AbandonedRunException(ctx);
 		}
-		System.out.println(status);
 	}
 
 	/**
 	 * Initialize evitaDB client that connects to the remote server.
 	 */
 	@Bean
-	EvitaContract evita() {
+	EvitaHolder evita(ConfigurableApplicationContext ctx) {
 		try {
 			// we want to disable gRPC client logging to avoid cluttering the output to the console
 			InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE);
@@ -74,35 +118,17 @@ public class Main {
 					.port(5556)
 					.build()
 			);
-			// instruct client to shutdown on JVM exit
-			Runtime.getRuntime().addShutdownHook(
-				new Thread() {
-					@Override
-					public void run() {
-						evita.close();
-					}
-				}
-			);
 
-			printEvitaDbClientStatus(evita);
-
-			return evita;
+			connectAndPrintEvitaDbClientStatus(evita);
+			return new EvitaHolder(evita);
 		} catch (Exception ex) {
 			if (ex instanceof StatusRuntimeException statusException && statusException.getStatus().getCode().equals(Status.UNAVAILABLE.getCode())) {
 				log.severe("Evita client failed connecting to evitaDB server.");
 			} else {
 				log.severe("Evita client failed to start: " + ex.getMessage());
 			}
-			throw ex;
+			return new EvitaHolder(null);
 		}
-	}
-
-	/**
-	 * Session holder bean is used to track the reference to the single opened evitaDB session.
-	 */
-	@Bean
-	EvitaSessionHolder sessionHolder() {
-		return new EvitaSessionHolder();
 	}
 
 	/**

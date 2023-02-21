@@ -2,7 +2,7 @@ package io.evitadb.example.crud.command;
 
 import io.evitadb.api.EvitaContract;
 import io.evitadb.api.requestResponse.schema.CatalogSchemaEditor.CatalogSchemaBuilder;
-import io.evitadb.example.crud.context.EvitaSessionHolder;
+import io.evitadb.example.crud.context.EvitaHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.shell.component.flow.ComponentFlow;
 import org.springframework.shell.component.flow.ComponentFlow.ComponentFlowResult;
@@ -23,8 +23,7 @@ import java.util.Objects;
 @ShellCommandGroup("Catalog operations")
 public class CatalogOperations {
 	@Autowired ComponentFlow.Builder flowBuilder;
-	@Autowired EvitaContract evita;
-	@Autowired EvitaSessionHolder sessionHolder;
+	@Autowired EvitaHolder evitaHolder;
 
 	@ShellMethod(key = "create-catalog", value = "defines a new catalog in evitaDB")
 	public String createCatalog(
@@ -34,6 +33,7 @@ public class CatalogOperations {
 			catalogName = readCatalogName("Catalog name:");
 		}
 
+		final EvitaContract evita = evitaHolder.getEvita();
 		if (evita.getCatalogNames().contains(catalogName)) {
 			return "Catalog `" + catalogName + "` already exists.";
 		} else {
@@ -50,17 +50,18 @@ public class CatalogOperations {
 			catalogName = readCatalogName("Catalog name:");
 		}
 
+		final EvitaContract evita = evitaHolder.getEvita();
 		if (evita.getCatalogNames().contains(catalogName)) {
 			final StringBuilder result = new StringBuilder();
-			if (sessionHolder.getSession() != null) {
-				if (Objects.equals(catalogName, sessionHolder.getSession().getCatalogName())) {
+			if (evitaHolder.getSession() != null) {
+				if (Objects.equals(catalogName, evitaHolder.getSession().getCatalogName())) {
 					return "There is already opened session to catalog `" + catalogName + "`.";
 				} else {
-					sessionHolder.getSession().close();
-					result.append("Existing session to catalog `").append(sessionHolder.getSession().getCatalogName()).append("` terminated.\n");
+					evitaHolder.getSession().close();
+					result.append("Existing session to catalog `").append(evitaHolder.getSession().getCatalogName()).append("` terminated.\n");
 				}
 			}
-			sessionHolder.setSession(
+			evitaHolder.setSession(
 				evita.createReadWriteSession(catalogName)
 			);
 			return result + "Session to catalog `" + catalogName + "` opened.";
@@ -71,10 +72,10 @@ public class CatalogOperations {
 
 	@ShellMethod(key = "close-catalog", value = "closes opened session to catalog")
 	public String closeCatalog() {
-		if (sessionHolder.getSession() != null) {
-			final String catalogName = sessionHolder.getSession().getCatalogName();
-			sessionHolder.getSession().close();
-			sessionHolder.setSession(null);
+		if (evitaHolder.getSession() != null) {
+			final String catalogName = evitaHolder.getSession().getCatalogName();
+			evitaHolder.getSession().close();
+			evitaHolder.setSession(null);
 			return "Existing session to catalog" + catalogName + "` terminated.";
 		} else {
 			return "No session is currently opened.";
@@ -89,6 +90,7 @@ public class CatalogOperations {
 			catalogName = readCatalogName("Catalog name to drop:");
 		}
 
+		final EvitaContract evita = evitaHolder.getEvita();
 		if (evita.deleteCatalogIfExists(catalogName)) {
 			return "Catalog `" + catalogName + "` was deleted.";
 		} else {
@@ -100,6 +102,8 @@ public class CatalogOperations {
 	public String listCatalogs() {
 		final StringBuilder output = new StringBuilder();
 		int no = 1;
+
+		final EvitaContract evita = evitaHolder.getEvita();
 		for (String catalogName : evita.getCatalogNames()) {
 			output.append("   ").append(no++).append(". ").append(catalogName).append("\n");
 		}

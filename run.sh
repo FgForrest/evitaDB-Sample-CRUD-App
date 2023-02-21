@@ -5,10 +5,10 @@ name='evitaDB'
 if ! docker ps -f "name=$name" --format '{{.Names}}' | grep -w $name &> /dev/null; then
   if docker ps --all -f "name=$name" --format '{{.Names}}'  | grep -w $name &> /dev/null; then
     echo "Starting container '$name'"
-    docker start $name &> /dev/null && sleep 2
+    docker start $name &> /dev/null
   else
     echo "Creating container '$name'"
-    docker run -d --name="$name" --net=host -v "./data:/evita/data" index.docker.io/evitadb/evitadb:latest && sleep 2
+    docker run -d --name="$name" --net=host -v "./data:/evita/data" index.docker.io/evitadb/evitadb:latest
   fi
 fi
 
