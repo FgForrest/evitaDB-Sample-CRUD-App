@@ -97,6 +97,7 @@
 		</dependency>
 	</dependencies>
 	<build>
+		<finalName>evita-crud</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -232,42 +233,6 @@
 							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 						</manifest>
 					</archive>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.3.0</version>
-				<executions>
-					<execution>
-						<phase>package</phase>
-						<goals>
-							<goal>shade</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<!--<minimizeJar>true</minimizeJar>-->
-					<finalName>evita-crud</finalName>
-					<filters>
-						<filter>
-							<artifact>*:*</artifact>
-							<excludes>
-								<exclude>META-INF/versions/**</exclude>
-							</excludes>
-						</filter>
-					</filters>
-					<transformers>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
-							<resource>META-INF/MANIFEST.MF</resource>
-						</transformer>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-							<resource>META-INF/DEPENDENCIES</resource>
-						</transformer>
-					</transformers>
 				</configuration>
 			</plugin>
 		</plugins>

@@ -1,7 +1,6 @@
 package io.evitadb.example.crud;
 
 import io.evitadb.driver.EvitaClient;
-import io.evitadb.driver.config.EvitaClientConfiguration;
 import io.evitadb.example.crud.context.EvitaHolder;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -22,6 +21,8 @@ import org.springframework.shell.style.TemplateExecutor;
 import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.logging.Logger;
+
+import static io.evitadb.example.crud.api.CreateEvitaClient.createEvitaClient;
 
 /**
  * Main class of the evitaDB CRUD demo. Initializes shared beans and starts the application.
@@ -112,12 +113,7 @@ public class Main {
 			// we want to disable gRPC client logging to avoid cluttering the output to the console
 			InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE);
 			// now set up the client on default gRPC port on localhost
-			final EvitaClient evita = new EvitaClient(
-				EvitaClientConfiguration.builder()
-					.host("localhost")
-					.port(5556)
-					.build()
-			);
+			final EvitaClient evita = createEvitaClient();
 
 			connectAndPrintEvitaDbClientStatus(evita);
 			return new EvitaHolder(evita);
